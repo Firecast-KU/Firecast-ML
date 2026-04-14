@@ -1,11 +1,7 @@
-# 데이터는 git에서 제외
-src/data/raw
-!data/features/
-!data/processed/fire_weather_merged.csv
-!data/processed/fire_weather_merged.parquet
-
-# raw 데이터 전체 제외(용량 큼)
-data/raw/**
+# project/ 루트 기준 대용량 산출물 제외
+/data/
+/models/
+/outputs/
 
 # shapefile 별도 제외
 *.shp

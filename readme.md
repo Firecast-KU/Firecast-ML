@@ -40,11 +40,13 @@ firecast/
 │ │
 │ ├── models/ # 모델 학습·평가·예측 로직
 │ │ ├── init.py
-│ │ ├── train_base_model.py # 베이스 모델 학습 + 저장
-│ │ ├── evaluate.py # time split 기반 성능 평가
-│ │ ├── predict_daily_base.py # 특정 날짜 예측 (서빙용)
-│ │ ├── base_lr.joblib # 저장된 모델 아티팩트
-│ │ └── base_lr_meta.json # 학습 메타데이터
+│ │ ├── common/ # 공통 metric / 유틸
+│ │ ├── lr/ # LR 학습 / 예측
+│ │ ├── catboost/ # CatBoost 학습 / 평가
+│ │ ├── tcn/ # TCN 모델 / 학습 / 평가
+│ │ ├── selection/ # benchmark / station winner 선택
+│ │ ├── legacy/ # 과거 weather_labeled 기반 코드 보존
+│ │ └── artifacts/ # 저장된 모델 아티팩트
 │ │
 │ └── validation/ # 데이터 및 결과 검증
 │ ├── init.py
@@ -138,9 +140,8 @@ firecast/
 - 클래스 불균형 고려 (Recall 중심 평가)
 
 #### 역할 분리
-- 학습: `models/train_base_model.py`
-- 평가: `models/evaluate.py`
-- 예측(서빙): `models/predict_daily_base.py`
+- 학습: `models/lr/train.py`
+- 예측(서빙): `models/lr/predict.py`
 
 **출력**
 - 날짜별·관측소별 산불 위험 확률
