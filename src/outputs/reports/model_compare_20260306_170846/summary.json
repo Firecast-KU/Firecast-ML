@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "generated_at": "2026-03-06T17:08:46",
+    "old_model_path": "src\\models\\base_lr.joblib",
+    "new_model_path": "src\\models\\hgb_v1.joblib",
+    "old_meta_path": "src\\models\\base_lr_meta.json",
+    "new_meta_path": "src\\models\\hgb_v1_meta.json",
+    "data_file": "C:\\Users\\pds20\\firecast\\src\\data\\processed\\weather_labeled.parquet",
+    "date_col": "date",
+    "label_col": "fire_label",
+    "old_features": [
+      "TA_mean",
+      "POP",
+      "is_precip",
+      "WD_sin",
+      "WD_cos",
+      "SKY"
+    ],
+    "new_features": [
+      "TA_mean",
+      "TA_dtr",
+      "POP",
+      "is_precip",
+      "WD_sin",
+      "WD_cos",
+      "SKY"
+    ],
+    "holdout_days": 240,
+    "cutoff_date": "2021-05-05",
+    "eval_rows": 482,
+    "eval_positive": 23,
+    "threshold": 0.5
+  },
+  "old": {
+    "roc_auc": 0.5370843989769821,
+    "pr_auc": 0.050684356826336444,
+    "brier": 0.20143849025307273,
+    "log_loss": 0.5896273251966487,
+    "accuracy": 0.7074688796680498,
+    "precision": 0.05303030303030303,
+    "recall": 0.30434782608695654,
+    "f1": 0.09032258064516129,
+    "positive_rate": 0.27385892116182575,
+    "threshold": 0.5
+  },
+  "new": {
+    "roc_auc": 0.5122667424457705,
+    "pr_auc": 0.05375663701991655,
+    "brier": 0.2306872016211447,
+    "log_loss": 0.7551872309875591,
+    "accuracy": 0.6929460580912863,
+    "precision": 0.050359712230215826,
+    "recall": 0.30434782608695654,
+    "f1": 0.08641975308641975,
+    "positive_rate": 0.2883817427385892,
+    "threshold": 0.5
+  },
+  "delta": {
+    "roc_auc": -0.024817656531211596,
+    "pr_auc": 0.003072280193580107,
+    "brier": 0.029248711368071972,
+    "log_loss": 0.1655599057909104,
+    "accuracy": -0.014522821576763545,
+    "precision": -0.0026705908000872053,
+    "recall": 0.0,
+    "f1": -0.0039028275587415368,
+    "positive_rate": 0.014522821576763434
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "station_day_base_rows": 1462,
+  "station_day_base_positive": 497,
+  "catboost_rows": 1462,
+  "tcn_samples": 1420,
+  "tcn_positive": 487,
+  "dataset_dir": "C:\\Users\\pds20\\firecast\\src\\data\\features\\datasets"
+}
