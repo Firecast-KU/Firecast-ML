@@ -46,6 +46,23 @@ def risk_level_from_prob(p: float) -> str:
     return "EXTREME"
 
 
+def _resolve_operating_threshold(meta: dict, default_threshold: float = 0.5) -> float:
+    configured = meta.get("operating_threshold")
+    if configured is not None:
+        return float(configured)
+
+    recall_at_far = meta.get("holdout_metrics", {}).get("recall_at_far", {})
+    threshold = recall_at_far.get("threshold")
+    if threshold is not None:
+        return float(threshold)
+
+    threshold = meta.get("holdout_metrics", {}).get("threshold")
+    if threshold is not None:
+        return float(threshold)
+
+    return float(default_threshold)
+
+
 def _load_station_metadata() -> pd.DataFrame:
     if not STATION_DAY_BASE_FILE.exists():
         raise FileNotFoundError(
@@ -59,15 +76,17 @@ def _load_station_metadata() -> pd.DataFrame:
     return base_df
 
 
-def _normalize_output(df: pd.DataFrame, model_name: str) -> pd.DataFrame:
+def _normalize_output(df: pd.DataFrame, model_name: str, alert_threshold: float) -> pd.DataFrame:
     result = df.copy()
     result["model_name"] = model_name
     result["station_id"] = result["station_id"].astype("string")
     result["date"] = pd.to_datetime(result["date"]).dt.normalize()
     result["pred_prob"] = pd.to_numeric(result["pred_prob"], errors="coerce")
     result["risk_level"] = result["pred_prob"].apply(risk_level_from_prob)
+    result["alert_threshold"] = float(alert_threshold)
+    result["is_alert"] = (result["pred_prob"] >= result["alert_threshold"]).astype(int)
 
-    cols = ["model_name", "station_id", "date", "pred_prob", "risk_level", "stn_lat", "stn_lon"]
+    cols = ["model_name", "station_id", "date", "pred_prob", "risk_level", "alert_threshold", "is_alert", "stn_lat", "stn_lon"]
     return result[cols].sort_values(["date", "station_id"]).reset_index(drop=True)
 
 
@@ -89,6 +108,7 @@ def _predict_wide_model(model_name: str, target_date: str) -> pd.DataFrame:
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     feature_cols = meta["features"]
     categorical_cols = set(meta.get("categorical_features", []))
+    alert_threshold = _resolve_operating_threshold(meta)
 
     df = pd.read_parquet(WIDE_DATA_FILE)
     df["date"] = pd.to_datetime(df["date"])
@@ -110,7 +130,7 @@ def _predict_wide_model(model_name: str, target_date: str) -> pd.DataFrame:
 
     model = joblib.load(model_path)
     day_df["pred_prob"] = model.predict_proba(day_df[feature_cols])[:, 1]
-    return _normalize_output(day_df, model_name=model_name)
+    return _normalize_output(day_df, model_name=model_name, alert_threshold=alert_threshold)
 
 
 def _predict_tcn_model(target_date: str) -> pd.DataFrame:
@@ -156,7 +176,7 @@ def _predict_tcn_model(target_date: str) -> pd.DataFrame:
     result["station_id"] = result["station_id"].astype("string")
     result["pred_prob"] = pred_prob
     result = result.merge(station_meta, on="station_id", how="left", validate="many_to_one")
-    return _normalize_output(result, model_name="tcn")
+    return _normalize_output(result, model_name="tcn", alert_threshold=0.5)
 
 
 def predict_for_date(target_date: str, model_name: str = "all") -> pd.DataFrame:

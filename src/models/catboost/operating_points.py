@@ -1,5 +1,6 @@
 import json
 from argparse import ArgumentParser
+from datetime import datetime
 from pathlib import Path
 
 import joblib
@@ -70,6 +71,7 @@ def summarize_operating_points(
     holdout_days: int | None = None,
     min_precision: float = 0.3,
     max_far: float = 0.05,
+    update_meta: bool = False,
     output_dir: Path | None = None,
 ) -> dict:
     if output_dir is None:
@@ -105,6 +107,23 @@ def summarize_operating_points(
         "false_alarm_limited_threshold": far_point,
     }
 
+    if update_meta:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        selected_threshold = far_point.get("threshold")
+        if selected_threshold is not None:
+            meta["operating_threshold"] = float(selected_threshold)
+            meta["operating_threshold_policy"] = "recall_at_far"
+            meta["operating_threshold_constraints"] = {
+                "max_far": float(max_far),
+            }
+            meta["operating_threshold_selected_at"] = datetime.now().isoformat(timespec="seconds")
+            meta["operating_threshold_source"] = "src.models.catboost.operating_points"
+            meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+            summary["meta_updated"] = True
+            summary["selected_operating_threshold"] = float(selected_threshold)
+        else:
+            summary["meta_updated"] = False
+
     output_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).drop_duplicates(subset=["threshold"]).to_csv(
         output_dir / "recommended_thresholds.csv",
@@ -128,6 +147,7 @@ def parse_args():
     parser.add_argument("--holdout-days", type=int, default=None)
     parser.add_argument("--min-precision", type=float, default=0.3)
     parser.add_argument("--max-far", type=float, default=0.05)
+    parser.add_argument("--update-meta", action="store_true")
     parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
 
@@ -140,5 +160,6 @@ if __name__ == "__main__":
         holdout_days=args.holdout_days,
         min_precision=args.min_precision,
         max_far=args.max_far,
+        update_meta=args.update_meta,
         output_dir=Path(args.output_dir) if args.output_dir else None,
     )
