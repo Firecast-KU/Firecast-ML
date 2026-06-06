@@ -38,6 +38,25 @@ def _mode_or_na(series: pd.Series):
     return mode.iloc[0]
 
 
+def ensure_station_day_base_schema(df: pd.DataFrame) -> pd.DataFrame:
+    normalized = df.copy()
+    normalized["date"] = pd.to_datetime(normalized["date"]).dt.normalize()
+
+    if "month" not in normalized.columns:
+        normalized["month"] = normalized["date"].dt.month.astype("Int64")
+    if "dayofyear" not in normalized.columns:
+        normalized["dayofyear"] = normalized["date"].dt.dayofyear.astype("Int64")
+
+    if "doy_sin" not in normalized.columns or "doy_cos" not in normalized.columns:
+        radians = 2 * np.pi * normalized["dayofyear"].astype(float) / 365.0
+        if "doy_sin" not in normalized.columns:
+            normalized["doy_sin"] = np.sin(radians)
+        if "doy_cos" not in normalized.columns:
+            normalized["doy_cos"] = np.cos(radians)
+
+    return normalized.sort_values(["station_id", "date"]).reset_index(drop=True)
+
+
 def _resolve_station_metadata() -> pd.DataFrame:
     # 현재 저장소에서는 기본 registry를 우선 사용한다.
     registry = WeatherStationRegistry.default_kma_gangneung()
@@ -295,7 +314,7 @@ def build_catboost_dataset(
     if station_day_base is None:
         station_day_base = pd.read_parquet(DATASET_DIR / "station_day_base.parquet")
 
-    df = station_day_base.copy().sort_values(["station_id", "date"]).reset_index(drop=True)
+    df = ensure_station_day_base_schema(station_day_base)
 
     continuous_cols = ["TA_day", "TA_dtr_day", "POP_day", "WD_sin_day", "WD_cos_day"]
     binary_cols = ["is_precip_day", "has_00_obs", "has_12_obs"]
@@ -348,7 +367,7 @@ def build_tcn_dataset(
     if station_day_base is None:
         station_day_base = pd.read_parquet(DATASET_DIR / "station_day_base.parquet")
 
-    df = station_day_base.copy().sort_values(["station_id", "date"]).reset_index(drop=True)
+    df = ensure_station_day_base_schema(station_day_base)
 
     for sky_code in TCN_SKY_LEVELS:
         # TCN 입력에서는 SKY를 one-hot 으로 고정된 채널에 넣는다.

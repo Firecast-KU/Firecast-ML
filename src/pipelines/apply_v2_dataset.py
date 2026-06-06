@@ -6,7 +6,11 @@ from shutil import copy2
 import pandas as pd
 
 from src.config.paths import DATASET_DIR
-from src.core.model_dataset import build_catboost_dataset, build_tcn_dataset
+from src.core.model_dataset import (
+    build_catboost_dataset,
+    build_tcn_dataset,
+    ensure_station_day_base_schema,
+)
 
 
 DEFAULT_V2_SOURCE = DATASET_DIR / "v2" / "features" / "datasets" / "station_day_base.parquet"
@@ -31,7 +35,8 @@ def apply_v2_dataset(
 
     copy2(source_path, target_path)
 
-    station_day_base = pd.read_parquet(target_path)
+    station_day_base = ensure_station_day_base_schema(pd.read_parquet(target_path))
+    station_day_base.to_parquet(target_path, index=False)
     build_catboost_dataset(station_day_base=station_day_base)
     tcn_meta = build_tcn_dataset(station_day_base=station_day_base)
 
