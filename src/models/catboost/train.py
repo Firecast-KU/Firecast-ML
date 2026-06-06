@@ -1,6 +1,7 @@
 import json
 from argparse import ArgumentParser
 from datetime import datetime
+from typing import Any
 
 import joblib
 import pandas as pd
@@ -51,30 +52,13 @@ def _load_training_frame() -> pd.DataFrame:
     return df
 
 
-def train_and_save(
-    holdout_days: int = 240,
-    threshold: float = 0.5,
-    min_precision: float = 0.3,
-    max_far: float = 0.05,
+def build_model(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    X_valid: pd.DataFrame,
+    y_valid: pd.Series,
 ):
     CatBoostClassifier = _import_catboost()
-
-    df = _load_training_frame()
-    train_df, test_df, cutoff = time_split_holdout(df, holdout_days=holdout_days)
-    if train_df.empty or test_df.empty:
-        raise ValueError(
-            f"Invalid split (holdout_days={holdout_days}): train_rows={len(train_df)}, test_rows={len(test_df)}"
-        )
-
-    X_train = train_df[FEATURES]
-    y_train = train_df[LABEL].astype(int)
-    X_test = test_df[FEATURES]
-    y_test = test_df[LABEL].astype(int)
-
-    if y_train.nunique() < 2:
-        raise ValueError("Training labels have only one class.")
-    if y_test.nunique() < 2:
-        raise ValueError("Test labels have only one class.")
 
     neg = int((y_train == 0).sum())
     pos = int((y_train == 1).sum())
@@ -97,10 +81,30 @@ def train_and_save(
         X_train,
         y_train,
         cat_features=CATEGORICAL_FEATURES,
-        eval_set=(X_test, y_test),
+        eval_set=(X_valid, y_valid),
         use_best_model=True,
     )
+    return model, scale_pos_weight
 
+
+def evaluate_split(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    threshold: float = 0.5,
+    min_precision: float = 0.3,
+    max_far: float = 0.05,
+) -> dict[str, Any]:
+    X_train = train_df[FEATURES]
+    y_train = train_df[LABEL].astype(int)
+    X_test = test_df[FEATURES]
+    y_test = test_df[LABEL].astype(int)
+
+    if y_train.nunique() < 2:
+        raise ValueError("Training labels have only one class.")
+    if y_test.nunique() < 2:
+        raise ValueError("Test labels have only one class.")
+
+    model, scale_pos_weight = build_model(X_train, y_train, X_test, y_test)
     y_prob = model.predict_proba(X_test)[:, 1]
     metrics = classification_metrics(
         y_true=y_test.to_numpy(),
@@ -109,6 +113,46 @@ def train_and_save(
         min_precision=min_precision,
         max_far=max_far,
     )
+    test_pred = test_df[["station_id", "date", LABEL]].copy()
+    test_pred["pred_prob"] = y_prob
+
+    return {
+        "model": model,
+        "scale_pos_weight": scale_pos_weight,
+        "metrics": metrics,
+        "test_pred": test_pred.reset_index(drop=True),
+        "train_rows": int(len(train_df)),
+        "test_rows": int(len(test_df)),
+        "train_positive": int(y_train.sum()),
+        "test_positive": int(y_test.sum()),
+    }
+
+
+def train_and_save(
+    holdout_days: int = 240,
+    threshold: float = 0.5,
+    min_precision: float = 0.3,
+    max_far: float = 0.05,
+):
+    df = _load_training_frame()
+    train_df, test_df, cutoff = time_split_holdout(df, holdout_days=holdout_days)
+    if train_df.empty or test_df.empty:
+        raise ValueError(
+            f"Invalid split (holdout_days={holdout_days}): train_rows={len(train_df)}, test_rows={len(test_df)}"
+        )
+
+    result = evaluate_split(
+        train_df=train_df,
+        test_df=test_df,
+        threshold=threshold,
+        min_precision=min_precision,
+        max_far=max_far,
+    )
+    model = result["model"]
+    metrics = result["metrics"]
+    scale_pos_weight = result["scale_pos_weight"]
+    y_train = train_df[LABEL].astype(int)
+    y_test = test_df[LABEL].astype(int)
 
     CATBOOST_ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     model_path = CATBOOST_ARTIFACT_DIR / MODEL_NAME
