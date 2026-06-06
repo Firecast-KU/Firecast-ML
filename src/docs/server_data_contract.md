@@ -434,6 +434,8 @@ python -m src.models.predict --target-date YYYY-MM-DD --model all
 | `date` | datetime | 예측 대상 날짜 |
 | `pred_prob` | float | 화재 확률 |
 | `risk_level` | string | `LOW`, `MODERATE`, `HIGH`, `EXTREME` |
+| `alert_threshold` | float | 운영 경보 판정 기준 (`pred_prob >= alert_threshold`) |
+| `is_alert` | int | 운영 경보 여부 (`1`=경보, `0`=비경보) |
 | `stn_lat` | float | 위도 |
 | `stn_lon` | float | 경도 |
 
@@ -451,6 +453,8 @@ python -m src.models.predict --target-date YYYY-MM-DD --model all
       "date": "2021-03-25 00:00:00",
       "pred_prob": 0.595367531142382,
       "risk_level": "MODERATE",
+      "alert_threshold": 0.7164710376269543,
+      "is_alert": 0,
       "stn_lat": 37.80456,
       "stn_lon": 128.85535
     },
@@ -460,6 +464,8 @@ python -m src.models.predict --target-date YYYY-MM-DD --model all
       "date": "2021-03-25 00:00:00",
       "pred_prob": 0.862471844173419,
       "risk_level": "EXTREME",
+      "alert_threshold": 0.5,
+      "is_alert": 1,
       "stn_lat": 37.80456,
       "stn_lon": 128.85535
     }
@@ -531,9 +537,18 @@ Firecast에 데이터를 넘기기 전에 아래를 확인해야 한다.
 
 ## 14. 현재 Firecast 구현 파일
 
-- 공통 dataset 생성: [src/core/model_dataset.py](C:/Users/pds20/firecast/src/core/model_dataset.py:1)
-- 공통 예측 실행: [src/models/predict.py](C:/Users/pds20/firecast/src/models/predict.py:1)
-- LR 학습: [src/models/lr/train.py](C:/Users/pds20/firecast/src/models/lr/train.py:1)
-- CatBoost 학습: [src/models/catboost/train.py](C:/Users/pds20/firecast/src/models/catboost/train.py:1)
-- TCN 학습: [src/models/tcn/train.py](C:/Users/pds20/firecast/src/models/tcn/train.py:1)
+- 공통 dataset 생성: [src/core/model_dataset.py](../core/model_dataset.py)
+- 공통 예측 실행: [src/models/predict.py](../models/predict.py)
+- LR 학습: [src/models/lr/train.py](../models/lr/train.py)
+- CatBoost 학습: [src/models/catboost/train.py](../models/catboost/train.py)
+- TCN 학습: [src/models/tcn/train.py](../models/tcn/train.py)
+## 15. 서버 구현 주의사항
 
+- Firecast 공통 예측 출력에는 `alert_threshold`, `is_alert`가 포함된다.
+- `risk_level`은 시각화와 설명용 등급이다.
+- 실제 경보 발송, 알림 라우팅, 대시보드 강조 여부는 `is_alert`를 기준으로 처리한다.
+- 서버가 별도의 threshold를 hard-code 하지 말고 Firecast가 반환한 `alert_threshold`, `is_alert`를 그대로 사용한다.
+- 기존 응답 스키마를 사용 중이면 DTO / serializer / OpenAPI schema에 `alert_threshold`, `is_alert`를 추가해야 한다.
+- 예시:
+  - `pred_prob = 0.80`, `alert_threshold = 0.7165` -> `is_alert = 1`
+  - `pred_prob = 0.57`, `alert_threshold = 0.7165` -> `is_alert = 0`

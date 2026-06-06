@@ -188,3 +188,25 @@ firecast/
 - **일 단위 예측 + 3시간 단위 위험도 갱신 구조**
 - 관측 기반 Δ feature 보정 모델
 - 기상 예보 데이터 활용한 선제적 위험 예측
+---
+
+## Server Integration Notes
+
+Firecast 예측 결과에는 백엔드 연동을 위한 명시적인 Alert 판단 필드가 포함되어 있습니다.
+
+- `pred_prob`: 모델이 예측한 산불 발생 확률
+- `risk_level`: 화면 표시용 위험도 구간 (`LOW`, `MODERATE`, `HIGH`, `EXTREME`)
+- `alert_threshold`: Alert 발생 여부를 결정하는 운영 기준 임계값
+- `is_alert`: 최종 Alert 플래그 (`1` = Alert 발생, `0` = Alert 없음)
+
+백엔드 개발자는 다음 원칙에 따라 해당 필드를 사용해야 합니다.
+
+- 최종 운영 Alert 여부는 `is_alert` 값을 기준으로 판단합니다.
+- `risk_level`은 시각화 또는 사용자 설명 용도로만 사용하며, Alert 라우팅 기준으로 사용해서는 안 됩니다.
+- Firecast가 이미 `is_alert` 값을 반환하는 경우, 서버에서 별도의 임계값(threshold)을 하드코딩하여 다시 판단하지 않습니다.
+- 응답 DTO, Serializer, API Schema에 `alert_threshold: float` 및 `is_alert: int` 필드를 포함하도록 업데이트합니다.
+
+### Examples
+
+- `pred_prob = 0.80`, `alert_threshold = 0.7165` → `is_alert = 1`
+- `pred_prob = 0.57`, `alert_threshold = 0.7165` → `is_alert = 0`
